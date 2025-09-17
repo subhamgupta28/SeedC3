@@ -235,7 +235,6 @@ void readCell()
 }
 void loop()
 {
-  automata.loop();
   sensors_event_t humidity, temp;
   aht.getEvent(&humidity, &temp);
   doc["temp"] = String(temp.temperature, 2);
