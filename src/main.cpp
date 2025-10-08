@@ -13,7 +13,7 @@ const char *HOST = "raspberry.local";
 int PORT = 8010;
 
 Preferences preferences;
-Automata automata("Battery Bkp", HOST, PORT);
+Automata automata("Battery 250WH", HOST, PORT);
 JsonDocument doc;
 Adafruit_AHTX0 aht;
 Adafruit_INA219 ina219_a(0x40);
