@@ -13,7 +13,7 @@ const char *HOST = "raspberry.local";
 int PORT = 8010;
 
 Preferences preferences;
-Automata automata("Battery 250WH", HOST, PORT);
+Automata automata("Battery 250WH", "SENSOR|BATTERY", HOST, PORT, HOST, 1883);
 JsonDocument doc;
 Adafruit_AHTX0 aht;
 Adafruit_INA219 ina219_a(0x40);
@@ -40,29 +40,7 @@ float dischargingTimeHours = 0;
 int nextPowerReadTime = 0;
 bool onOff = true;
 
-// Pin definitions for ADC inputs
-const int adcPin1 = D1;
-const int adcPin2 = D2;
-const int adcPin3 = D3;
-const int adcPin4 = D4;
-// Reference voltage for ESP32 ADC (default is 3.3V)
-const float referenceVoltage = 3.3;
-unsigned long lastUpdateTime = 0;
-// Voltage divider ratios based on resistor values
-const float dividerRatio1 = 2.0;  // 10kΩ / 10kΩ
-const float dividerRatio2 = 11.0; // 100kΩ / 10kΩ
-const float dividerRatio3 = 20.6; // 100kΩ / 5.1kΩ
-const float dividerRatio4 = 51.0; // 100kΩ / 2kΩ
-float actualCell1;
-float actualCell2;
-float actualCell3;
-float actualCell4;
-// Calibration factors (adjust these based on multimeter readings)
-float calibrationFactor1 = 1.0614;
-float calibrationFactor2 = 1.1798;
-float calibrationFactor3 = 1.1232;
-float calibrationFactor4 = 1.4077;
-
+const float MAX_ENERGY_Wh = 252.0;
 String isDischarge = "DISCHARGE";
 
 void action(const Action action)
@@ -140,11 +118,11 @@ void setup()
   automata.addAttribute("humid", "Humidity", "%", "DATA|MAIN");
   automata.addAttribute("power", "Power", "W", "DATA|CHART");
   automata.addAttribute("totalEnergy", "Energy", "Wh", "DATA|MAIN");
-
-  automata.addAttribute("percent", "Percent", "%", "DATA|AUX");
+  automata.addAttribute("status", "Status", "", "DATA|MAIN");
+  automata.addAttribute("percent", "Percent", "%", "DATA|MAIN");
   automata.addAttribute("capacity", "Capacity", "Ah", "DATA|MAIN");
   automata.addAttribute("reset", "Reset", "", "ACTION|MENU|BTN");
-  automata.addAttribute("dischargingTime", "Time Left", "Hr", "DATA|MAIN");
+  automata.addAttribute("dischargingTime", "Runtime", "Hr", "DATA|MAIN");
   // automata.addAttribute("onOff", "OnOff", "", "ACTION|SWITCH");
 
   automata.registerDevice();
@@ -181,12 +159,12 @@ void readPow()
   unsigned long currentMillis = millis();
   float timeInterval = (currentMillis - previousMillis) / 1000.0;
 
-  totalEnergy += power_mW * (timeInterval / (60 * 60));
+  totalEnergy += -power_mW * (timeInterval / (60 * 60));
   capacity_mAh += current_mA * (timeInterval / (60 * 60));
-  isDischarge = current_mA < 0 ? "DISCHARGING" : "CHARGING";
-  percent = mapf(busvoltage, 12.8, 16.6, 0.0, 100.0);
-
-  if (isDischarge == "DISCHARGING")
+  isDischarge = current_mA < 0 ? "DISCHARGE" : "CHARGING";
+  // percent = mapf(busvoltage, 12.8, 16.6, 0.0, 100.0);
+  percent = 100.0 * (1.0 - (totalEnergy / MAX_ENERGY_Wh));
+  if (isDischarge == "DISCHARGE")
   {
     dischargingTimeHours = (targetCapacity - abs(capacity_mAh)) / abs(current_mA);
   }
@@ -199,40 +177,6 @@ void readPow()
   previousMillis = currentMillis;
 }
 
-float readVoltage(int pin, float ratio)
-{
-  int rawADC = analogRead(pin);
-  float voltage = (rawADC / 4095.0) * referenceVoltage;
-  return voltage * ratio;
-}
-
-void readCell()
-{
-  float cell1Voltage = readVoltage(adcPin1, dividerRatio1);
-  float cell2Voltage = readVoltage(adcPin2, dividerRatio2);
-  float cell3Voltage = readVoltage(adcPin3, dividerRatio3);
-  float cell4Voltage = readVoltage(adcPin4, dividerRatio4);
-
-  // Calculate actual cell voltages
-  actualCell1 = cell1Voltage;
-  actualCell2 = cell2Voltage - cell1Voltage;
-  actualCell3 = cell3Voltage - cell2Voltage;
-  actualCell4 = cell4Voltage - cell3Voltage;
-
-  // Print the voltages to Serial Monitor
-  Serial.print("Cell 1 Voltage: ");
-  Serial.print(actualCell1);
-  Serial.println(" V");
-  Serial.print("Cell 2 Voltage: ");
-  Serial.print(actualCell2);
-  Serial.println(" V");
-  Serial.print("Cell 3 Voltage: ");
-  Serial.print(actualCell3);
-  Serial.println(" V");
-  Serial.print("Cell 4 Voltage: ");
-  Serial.print(actualCell4);
-  Serial.println(" V");
-}
 void loop()
 {
   sensors_event_t humidity, temp;
@@ -256,8 +200,8 @@ void loop()
   doc["percent"] = String(percent, 2);
   doc["capacity"] = String(capacity_mAh, 2);
   doc["dischargingTime"] = String(dischargingTimeHours, 2);
-
-  if ((millis() - start) > 800)
+  doc["status"] = isDischarge;
+  if ((millis() - start) > 2000)
   {
 
     // digitalWrite(LED_BUILTIN, LOW);
