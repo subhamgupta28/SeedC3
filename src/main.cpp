@@ -115,6 +115,7 @@ void setup()
     Serial.println("Found AHT20");
   }
   automata.begin();
+  automata.useMQTT();
   getData();
 
   // automata.addAttribute("C1", "V1", "V", "DATA|AUX");
