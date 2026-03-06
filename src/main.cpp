@@ -8,26 +8,29 @@
 #define I2C_SCL_PIN D10
 // const char* HOST = "192.168.29.67";
 // int PORT = 8080;
+#define RELAY_PIN D4
 
 const char *HOST = "raspberry.local";
 int PORT = 8010;
 
 Preferences preferences;
-Automata automata("Battery 250WH", "SENSOR|BATTERY", HOST, PORT, HOST, 1883);
+Automata automata("LiFePO4 816WH", "SENSOR|BATTERY", HOST, PORT, HOST, 1883);
 JsonDocument doc;
 Adafruit_AHTX0 aht;
 Adafruit_INA219 ina219_a(0x40);
+Adafruit_INA219 ina219_b(0x41);
 
 long start = millis();
 float c1_shunt = 0;
-
+float c2_shunt = 0;
 float c1_volt = 0;
-
+float c2_volt = 0;
 float c1_curr = 0;
-
+float c2_curr = 0;
 float c1_pow = 0;
+float c2_pow = 0;
 
-float targetCapacity = 15;
+float targetCapacity = 30;
 float shuntvoltage = 0;
 float busvoltage = 0;
 float current_mA = 0;
@@ -36,16 +39,22 @@ float power_mW = 0;
 float totalEnergy = 0;
 float percent = 0;
 float capacity_mAh = 0;
+float chargingTimeHours = 0;
 float dischargingTimeHours = 0;
 int nextPowerReadTime = 0;
 bool onOff = true;
+bool channel1 = false;
 
-const float MAX_ENERGY_Wh = 252.0;
+const float MAX_ENERGY_Wh = 816.0;
 String isDischarge = "DISCHARGE";
 
 void action(const Action action)
 {
-
+  if (action.data.containsKey("channel1"))
+  {
+    channel1 = action.data["channel1"];
+    preferences.putBool("channel1", channel1);
+  }
   if (action.data.containsKey("reset"))
   {
     // reset = !reset;
@@ -87,11 +96,15 @@ void sendData()
 void setup()
 {
   Serial.begin(115200);
-  // pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
 
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Serial.println("waiting");
   delay(1000);
+  if (!ina219_b.begin())
+  {
+    Serial.println("Failed to find INA219_B chip");
+  }
   if (!ina219_a.begin())
   {
     Serial.println("Failed to find INA219_B chip");
@@ -108,10 +121,12 @@ void setup()
   // automata.addAttribute("C2", "V2", "V", "DATA|AUX");
   // automata.addAttribute("C3", "V3", "V", "DATA|AUX");
   // automata.addAttribute("C4", "V4", "V", "DATA|AUX");
-
-  automata.addAttribute("C1_CURR", "Current", "A", "DATA|CHART");
-  automata.addAttribute("C1_POWER", "Power", "W", "DATA|MAIN");
-
+  // automata.addAttribute("channel1", "Port 1", "On/Off", "ACTION|SWITCH");
+  automata.addAttribute("channel1", "Port 1", "On/Off", "ACTION|MENU|SWITCH");
+  automata.addAttribute("C1_CURR", "C1", "A", "DATA|CHART");
+  automata.addAttribute("C1_POWER", "P1", "W", "DATA|MAIN");
+  automata.addAttribute("C2_POWER", "P2", "W", "DATA|MAIN");
+  automata.addAttribute("C2_CURR", "C2", "A", "DATA|MAIN");
   automata.addAttribute("busVoltage", "Voltage", "V", "DATA|MAIN");
   automata.addAttribute("current", "Current", "A", "DATA|MAIN");
   automata.addAttribute("temp", "Temp", "C", "DATA|MAIN");
@@ -124,6 +139,11 @@ void setup()
   automata.addAttribute("reset", "Reset", "", "ACTION|MENU|BTN");
   automata.addAttribute("dischargingTime", "Runtime", "Hr", "DATA|MAIN");
   // automata.addAttribute("onOff", "OnOff", "", "ACTION|SWITCH");
+  automata.addAttribute("chargingTime", "Charge ETA", "Hr", "DATA|MAIN");
+  automata.addAttribute("capacityInfo", "Capacity", "30 AH", "DATA|INFO");
+  automata.addAttribute("configInfo", "Config", "8s2p", "DATA|INFO");
+  automata.addAttribute("energyInfo", "Energy", "816 WH", "DATA|INFO");
+  automata.addAttribute("sensorInfo", "Sensors", "Current, Volt, Temp, Humidity", "DATA|INFO");
 
   automata.registerDevice();
   automata.onActionReceived(action);
@@ -144,13 +164,28 @@ void readPow()
   c1_shunt = ina219_a.getShuntVoltage_mV();
   c1_volt = ina219_a.getBusVoltage_V();
   c1_curr = ina219_a.getCurrent_mA() * 20.0;
+
+  c2_shunt = ina219_b.getShuntVoltage_mV();
+  c2_volt = ina219_b.getBusVoltage_V();
+  c2_curr = ina219_b.getCurrent_mA() * 60;
+
   c1_curr = c1_curr / 1000; // Scaled and converted to A
   c1_pow = c1_volt * c1_curr;
 
+  c2_curr = c2_curr / 1000;
+  c2_pow = c2_volt * c2_curr;
+
   // Assign readings to global variables
-  busvoltage = c1_volt;
-  shuntvoltage = c1_shunt;
-  current_mA = c1_curr;
+  busvoltage = (c1_volt + c2_volt) / 2;
+  shuntvoltage = (c1_shunt + c2_shunt) / 2;
+  float curr = 0;
+  if (c1_curr > c2_curr)
+    curr = c1_curr + c2_curr;
+  else
+    curr = c2_curr + c1_curr;
+
+  current_mA = curr;
+
   power_mW = busvoltage * current_mA;
   loadvoltage = busvoltage + (shuntvoltage / 1000.0);
 
@@ -164,7 +199,16 @@ void readPow()
   isDischarge = current_mA < 0 ? "DISCHARGE" : "CHARGING";
   // percent = mapf(busvoltage, 12.8, 16.6, 0.0, 100.0);
   percent = 100.0 * (1.0 - (totalEnergy / MAX_ENERGY_Wh));
-  if (isDischarge == "DISCHARGE")
+  if (isDischarge == "CHARGING" && current_mA > 0)
+  {
+    float remainingCapacity = targetCapacity - capacity_mAh;
+
+    if (remainingCapacity > 0)
+      chargingTimeHours = remainingCapacity / current_mA;
+    else
+      chargingTimeHours = 0;
+  }
+  else
   {
     dischargingTimeHours = (targetCapacity - abs(capacity_mAh)) / abs(current_mA);
   }
@@ -185,12 +229,25 @@ void loop()
   doc["humid"] = String(humidity.relative_humidity, 2);
   readPow();
   // readCell();
+  int etaHours = (int)chargingTimeHours;
+  int etaMinutes = (int)((chargingTimeHours - etaHours) * 60);
+  if (chargingTimeHours < 0 || chargingTimeHours > 1000)
+  {
+    etaHours = 0;
+    etaMinutes = 0;
+  }
+  char etaStr[6];
+  snprintf(etaStr, sizeof(etaStr), "%02d:%02d", etaHours, etaMinutes);
+  doc["channel1"] = channel1;
   // doc["C1"] = String(actualCell1 * calibrationFactor1, 2);
   // doc["C2"] = String(actualCell2 * calibrationFactor2, 2);
   // doc["C3"] = String(actualCell3 * calibrationFactor3, 2);
   // doc["C4"] = String(actualCell4 * calibrationFactor4, 2);
   doc["C1_CURR"] = String(c1_curr, 2);
   doc["C1_POWER"] = String(c1_pow, 2);
+  doc["C2_CURR"] = String(c2_curr, 2);
+  doc["C2_POWER"] = String(c2_pow, 2);
+  doc["chargingTime"] = String(etaStr);
   // doc["shuntVoltage"] = String(shuntvoltage, 3);
   doc["busVoltage"] = String(busvoltage, 2);
   doc["current"] = String(current_mA, 2);
@@ -201,6 +258,14 @@ void loop()
   doc["capacity"] = String(capacity_mAh, 2);
   doc["dischargingTime"] = String(dischargingTimeHours, 2);
   doc["status"] = isDischarge;
+
+  if (!channel1)
+  {
+    digitalWrite(RELAY_PIN, LOW);
+  }
+  else
+    digitalWrite(RELAY_PIN, HIGH);
+
   if ((millis() - start) > 2000)
   {
 
