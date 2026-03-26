@@ -76,14 +76,14 @@ void action(const Action action)
 void getData()
 {
   percent = preferences.getFloat("percent", 100.0); // default to full charge
-
+  channel1 = preferences.getBool("channel1", false);
   totalEnergy = preferences.getFloat("totalEnergy", 0);
   capacity_mAh = preferences.getFloat("capacity_mAh", 0);
 }
 void saveData()
 {
   preferences.putFloat("percent", percent);
-
+  preferences.putBool("channel1", channel1);
   preferences.putFloat("totalEnergy", totalEnergy);
   preferences.putFloat("capacity_mAh", capacity_mAh);
 }
@@ -144,7 +144,7 @@ void setup()
   automata.addAttribute("capacityInfo", "Capacity", "30 AH", "DATA|INFO");
   automata.addAttribute("configInfo", "Config", "8s2p", "DATA|INFO");
   automata.addAttribute("energyInfo", "Energy", "816 WH", "DATA|INFO");
-  automata.addAttribute("relayStatus", "Relay", "", "DATA|INFO");
+  automata.addAttribute("relayStatus", "Relay", "", "DATA|MAIN");
   automata.addAttribute("sensorInfo", "Sensors", "Current, Volt, Temp, Humidity", "DATA|INFO");
 
   automata.registerDevice();
