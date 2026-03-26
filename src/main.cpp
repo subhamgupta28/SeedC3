@@ -262,7 +262,7 @@ void loop()
 
   
 
-  if (isDischarge == "CHARGING" || !channel1)
+  if (isDischarge == "CHARGING" || !channel1 || true)
   {
     digitalWrite(RELAY_PIN, LOW);
   }
