@@ -144,6 +144,7 @@ void setup()
   automata.addAttribute("capacityInfo", "Capacity", "30 AH", "DATA|INFO");
   automata.addAttribute("configInfo", "Config", "8s2p", "DATA|INFO");
   automata.addAttribute("energyInfo", "Energy", "816 WH", "DATA|INFO");
+  automata.addAttribute("relayStatus", "Relay", "", "DATA|INFO");
   automata.addAttribute("sensorInfo", "Sensors", "Current, Volt, Temp, Humidity", "DATA|INFO");
 
   automata.registerDevice();
@@ -259,15 +260,14 @@ void loop()
   doc["capacity"] = String(capacity_mAh, 2);
   doc["dischargingTime"] = String(dischargingTimeHours, 2);
   doc["status"] = isDischarge;
+  doc["relayStatus"] = digitalRead(RELAY_PIN);
 
-  
-
-  if (isDischarge == "CHARGING" || !channel1 || true)
+  if (isDischarge == "CHARGING" || channel1)
   {
-    digitalWrite(RELAY_PIN, LOW);
+    digitalWrite(RELAY_PIN, HIGH);
   }
   else
-    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RELAY_PIN, LOW);
 
   if ((millis() - start) > 2000)
   {
