@@ -260,7 +260,9 @@ void loop()
   doc["dischargingTime"] = String(dischargingTimeHours, 2);
   doc["status"] = isDischarge;
 
-  if (!channel1)
+  
+
+  if (isDischarge == "CHARGING" || !channel1)
   {
     digitalWrite(RELAY_PIN, LOW);
   }
