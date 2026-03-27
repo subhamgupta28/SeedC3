@@ -76,14 +76,14 @@ void action(const Action action)
 void getData()
 {
   percent = preferences.getFloat("percent", 100.0); // default to full charge
-  channel1 = preferences.getBool("channel1", false);
+  // channel1 = preferences.getBool("channel1", false);
   totalEnergy = preferences.getFloat("totalEnergy", 0);
   capacity_mAh = preferences.getFloat("capacity_mAh", 0);
 }
 void saveData()
 {
   preferences.putFloat("percent", percent);
-  preferences.putBool("channel1", channel1);
+  // preferences.putBool("channel1", channel1);
   preferences.putFloat("totalEnergy", totalEnergy);
   preferences.putFloat("capacity_mAh", capacity_mAh);
 }
@@ -262,7 +262,10 @@ void loop()
   doc["status"] = isDischarge;
   doc["relayStatus"] = digitalRead(RELAY_PIN);
 
-  if (isDischarge == "CHARGING" || channel1)
+  if (isDischarge == "CHARGING")
+    channel1 = true;
+
+  if (channel1)
   {
     digitalWrite(RELAY_PIN, HIGH);
   }
