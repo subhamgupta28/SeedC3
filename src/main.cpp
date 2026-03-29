@@ -14,7 +14,7 @@ const char *HOST = "raspberry.local";
 int PORT = 8010;
 
 Preferences preferences;
-Automata automata("LiFePO4 816WH", "SENSOR|BATTERY", HOST, PORT, HOST, 1883);
+Automata automata("LiFePO4 816WH", "SENSOR|BATTERY", HOST, PORT, HOST, 1884);
 JsonDocument doc;
 Adafruit_AHTX0 aht;
 Adafruit_INA219 ina219_a(0x40);
