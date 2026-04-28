@@ -198,10 +198,10 @@ void readPow()
 
   totalEnergy += -power_mW * (timeInterval / (60 * 60));
   capacity_mAh += current_mA * (timeInterval / (60 * 60));
-  isDischarge = c1_curr < 0 ? "DISCHARGE" : "CHARGING";
+  isDischarge = c1_curr > 0.5 ? "CHARGING" : "DISCHARGE";
   // percent = mapf(busvoltage, 12.8, 16.6, 0.0, 100.0);
   percent = 100.0 * (1.0 - (totalEnergy / MAX_ENERGY_Wh));
-  if (isDischarge == "CHARGING" && c1_curr > 0)
+  if (isDischarge == "CHARGING" && c1_curr > 0.5)
   {
     float remainingCapacity = targetCapacity - capacity_mAh;
 
