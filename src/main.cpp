@@ -281,6 +281,15 @@ void loop()
     start = millis();
   }
 
+  if(c2_pow > 10 && channel1 == false){
+    digitalWrite(RELAY_PIN, HIGH);
+    delay(400);
+    digitalWrite(RELAY_PIN, LOW);
+    delay(400);
+    digitalWrite(RELAY_PIN, HIGH);
+    delay(400);
+    digitalWrite(RELAY_PIN, LOW);
+  }
   // digitalWrite(LED_BUILTIN, HIGH);
   delay(100);
 }
