@@ -10,7 +10,7 @@
 // int PORT = 8080;
 #define RELAY_PIN D4
 
-const char *HOST = "raspberry.local";
+const char *HOST = "192.168.1.54";
 int PORT = 8010;
 
 Preferences preferences;
