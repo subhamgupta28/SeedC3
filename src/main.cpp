@@ -281,7 +281,7 @@ void loop()
     start = millis();
   }
 
-  if(c2_pow > 10 && channel1 == false){
+  if(abs(c2_pow) > 10 && channel1 == false){
     digitalWrite(RELAY_PIN, HIGH);
     delay(400);
     digitalWrite(RELAY_PIN, LOW);
